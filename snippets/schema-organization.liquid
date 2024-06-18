@@ -1,0 +1,61 @@
+{% comment %}
+
+  Used for SEO purposes for indexing general website information.
+
+  Render:
+  At the very beginning of the <body> tag within layout files.
+
+  Learn more:
+  https://schema.org/
+
+{% endcomment %}
+
+{% liquid
+  capture social_links
+    for social_item in shop.brand.metafields.social_links
+      assign social_name = social_item[0] | strip
+      assign social = shop.brand.metafields.social_links[social_name]
+
+      unless social == null
+        assign social_link = social.value | json
+        unless forloop.last
+          assign social_link = social_link | append: ','
+        endunless
+
+        echo social_link
+      endunless
+    endfor
+  endcapture
+
+  assign social_links = social_links | strip
+%}
+
+<script type="application/ld+json">
+  {
+    "@context": "http://schema.org",
+    "@type": "Organization",
+    "name": {{ shop.name | json }},
+    {% if shop.brand.logo != blank %}
+      "logo": {{ shop.brand.logo | image_url: width: 500 | prepend: "https:" | json }},
+    {% endif %}
+    "sameAs": [{{ social_links }}],
+    "url": {{ request.origin | append: page.url | json }}
+  }
+</script>
+
+{%- if request.page_type == 'index' -%}
+  {% assign potential_action_target = request.origin | append: routes.search_url | append: "?q={search_term_string}" %}
+  <script type="application/ld+json">
+    {
+      "@context": "http://schema.org",
+      "@type": "WebSite",
+      "name": {{ shop.name | json }},
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {{ potential_action_target | json }},
+        "query-input": "required name=search_term_string"
+      },
+      "url": {{ request.origin | append: page.url | json }}
+    }
+  </script>
+{%- endif -%}

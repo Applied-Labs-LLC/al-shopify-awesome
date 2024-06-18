@@ -1,0 +1,152 @@
+{% comment %}
+
+  The following defines each parameter that can be used and are sorted
+  alphabetically by two groups of required and optional variables.
+
+
+  # Required:
+
+  image (Object) - must be an image object such as product.image
+
+  # Optional:
+
+  alt (String) - alt text that defaults to blank string
+  aria_hidden (Boolean) - if wish for image to hidden for accessibility reasons (default: false)
+  class (String) - classes applied directly to the <img> tag
+  full (Boolean) - overrides image width to use maximum size of image (default: false)
+  height (Number) - height of image, automatically calculated if layout parameter specified
+  layout (String) - aspect ratio, options include: square, portrait, landscape, video
+  loading (Boolean) - determine broswer loading strategy (default: lazy)
+  preload (Boolean) - determine if browser should preload image (default: false)
+  sizes (String) - media queries instructing browser how wide the image will be by view width
+  width (Number) - set a height of image, use sizes as a guide (default: 400)
+  widths (Array) - comma separated list of images that Shopify will generate up-to specified `width` (default: 200-2000, incremented by 200)
+
+  Note:
+  For `sizes`, use the same media queries in the underlying Responsive Design class prefixes in Tailwind found here:
+  https://tailwindcss.com/docs/responsive-design
+
+{% endcomment %}
+
+{% liquid
+  # General variables
+  assign image = image | default: null
+  assign aria_hidden = aria_hidden | default: false
+  assign class = class | default: ''
+  assign layout = layout | default: ''
+
+  # Alt tag
+  assign image_alt = image.alt | escape | default: ''
+  assign alt_blank = alt_blank | default: false
+
+  if alt_blank
+    assign alt = ''
+  else
+    assign alt = alt | default: image_alt
+  endif
+
+  # Below and above fold images
+  assign loading_default = 'lazy'
+  assign preload_default = false
+  if section.location == 'header' or section.location == 'template' and section.index <= settings.lazy_load_threshold
+    assign loading_default = 'eager'
+    assign preload_default = true
+  endif
+
+  assign preload = preload | default: preload_default
+  assign loading = loading | default: loading_default
+
+
+  # Set default image dimensions and set to maximum size if full set true (eg. for banners)
+  assign width = width | default: 400
+  assign full = full | default: false
+  if full
+    assign width = image.width
+  endif
+
+  # Iterate to build default widths for srcset
+  assign max_srcset = image.width | divided_by: 200.0 | ceil
+  for i in (1..max_srcset)
+    assign num = i | times: 200
+    assign widths_default = widths_default | append: num | append: ','
+  endfor
+  assign widths_default = widths_default | remove_last: ',' | strip
+
+  # Set widths variable that dev can pass in manual update
+  assign widths = widths | default: widths_default
+
+  # Convert to array for srcset widths
+  assign srcset_widths = widths | replace: ' ', '' | split: ','
+
+  # Determine the height of image
+  assign origin_width = image.width | times: 1.000
+  assign width_change = width | divided_by: origin_width
+  if width_change == 0
+    assign width_change = 1
+  endif
+  assign height_default = image.height | times: width_change
+
+
+  # Layout and image aspect ratio and height
+  assign height = height | default: height_default | round
+
+  # Update based on case
+  case layout
+    when 'landscape'
+      assign height = width | times: 0.6667
+    when 'photo'
+      assign height = width | times: 1.25
+    when 'portrait'
+      assign height = width | times: 1.5
+    when 'square'
+      assign height = width
+    when 'video'
+      assign height = width | times: 0.5625
+  endcase
+%}
+
+{% # Source Set %}
+{%- capture srcset -%}
+  {% for item in srcset_widths %}
+    {% assign srcset_width = item | times: 1 %}
+    {% if image.width > srcset_width %}
+      {{ image | image_url: width: srcset_width }} {{ srcset_width }}w,
+    {% else %}
+      {{ image | image_url: width: image.width }} {{ image.width }}w,
+      {% break %}
+    {% endif %}
+  {% endfor %}
+{%- endcapture -%}
+{%- assign srcset = srcset | strip_newlines | remove_last: ',' -%}
+
+{% # Media conditions %}
+{%- capture sizes_default -%}
+  {% unless full %}
+    (min-width: 640px) 50vw,
+    (min-width: 768px) 33vw,
+    (min-width: 1024px) 25vw,
+  {% endunless %}
+  100vw
+{%- endcapture -%}
+{% liquid
+  assign sizes = sizes | default: sizes_default
+  assign sizes = sizes | strip_newlines | remove: ' ' | replace: ',', ', ' | replace: ')', ') ' | replace: ':', ': '
+%}
+
+{% # Image %}
+{%- unless image == null or image == blank -%}
+  {{
+    image
+    | image_url: width: width, height: height
+    | image_tag:
+      alt: alt,
+      aria-hidden: aria_hidden,
+      class: image_class,
+      loading: loading,
+      preload: preload,
+      sizes: sizes,
+      srcset: srcset
+  }}
+{%- else -%}
+  {{ 'image' | placeholder_svg_tag }}
+{%- endunless -%}
