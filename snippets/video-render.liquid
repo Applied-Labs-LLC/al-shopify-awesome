@@ -1,0 +1,82 @@
+{% comment %}
+  Before you start using this snippet file make sure to upload 'components/video-render.js' file in your assets folder!
+
+  Required attribute is 'video' and if 'autoplay' is true - the lazy loading video will be rendered.
+
+  An example of the code to render snippet file:
+
+  {% render 'video-render',
+    video: section.settings.video,
+    poster: url,
+    autoplay: true,
+    controls: false,
+    loop: true,
+    full_width: false,
+    width: 800,
+    height: 600,
+    class: "my-video",
+    part: "video"
+  %}
+
+  Reffering to the 'part' attribute that allows you to style it from any css file:
+
+  // example.css
+  lazy-video::part(video) {}
+
+  .my-class,
+  .my-class::part(video) {}
+{% endcomment %}
+
+{% liquid
+  assign autoplay = autoplay | default: false
+  assign full_width = full_width | default: false
+  assign width = width | default: 1920
+  assign height = height | default: 1080
+  assign poster = poster | default: video.preview_image
+  assign controls = controls | default: false
+  assign muted = muted | default: false
+  assign loop = loop | default: false
+  assign class = class | default: ''
+  assign part = part | default: ''
+%}
+
+{% unless video == null %}
+  {% if autoplay %}
+    <script type="module" src="{{ 'video-render.js' |  asset_url }}" defer="defer"></script>
+
+    {% capture video_sources_value %}
+      [
+        {% for source in video.sources %}
+          {
+            "url": "{{ source.url }}",
+            "mime_type": "{{ source.mime_type }}"
+          }
+        {% endfor %}
+      ]
+    {% endcapture %}
+
+    <lazy-video
+      class="{{ class }}"
+      part="{{ part }}"
+      fullWidth="{{ full_width }}"
+      width="{{ width }}"
+      height="{{ height }}"
+      loop="{{ loop }}"
+      poster="{{ poster |  image_url  }}"
+      sources="{{ video_sources_value |  escape }}"
+    >
+    </lazy-video>
+  {% else %}
+    {{
+      video
+      | video_tag:
+        class: class,
+        autoplay: false,
+        controls: controls,
+        muted: muted,
+        loop: loop,
+        width: width,
+        height: height
+    }}
+  {% endif %}
+{% endunless %}
