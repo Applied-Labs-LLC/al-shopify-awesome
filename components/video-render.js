@@ -1,3 +1,5 @@
+// web component
+
 class LazyVideoComponent extends HTMLElement {
   constructor() {
     super();
@@ -9,15 +11,15 @@ class LazyVideoComponent extends HTMLElement {
 
     this.videoElement = document.createElement("template");
     this.videoElement.innerHTML = `
-        <style>
-          video {
-            max-width: 100%;
-            aspect-ratio: ${aspectRatio};
-          }
-        </style>
-        
-        <video muted autoplay></video>  
-      `;
+      <style>
+        video {
+          max-width: 100%;
+          aspect-ratio: ${aspectRatio};
+        }
+      </style>
+      
+      <video muted autoplay></video>  
+    `;
 
     if (!this.shadowRoot) {
       this.attachShadow({ mode: "open" });
@@ -26,7 +28,7 @@ class LazyVideoComponent extends HTMLElement {
 
     this._isLoaded = false;
     this.observer = null;
-    this.update();
+    this.createVideoSources();
   }
 
   connectedCallback() {
@@ -87,7 +89,7 @@ class LazyVideoComponent extends HTMLElement {
     this.isLoaded = true;
   }
 
-  update() {
+  createVideoSources() {
     const videoTag = this.shadowRoot.querySelector("video");
     const videoSources = JSON.parse(this.getAttribute("sources"));
 
@@ -103,30 +105,23 @@ class LazyVideoComponent extends HTMLElement {
     this.addVideoAttributes(videoTag);
     this.removeComponentAttributes();
 
-    if (videoTag.getAttribute("fullwidth")) this.setFullWidth(videoTag);
+    if (JSON.parse(videoTag.getAttribute("fullwidth")))
+      this.setFullWidth(videoTag);
   }
 
   addVideoAttributes(videoTag) {
     const allAtributes = this.getAttributeNames();
+    const rejected = ["class", "sources"];
 
     allAtributes.forEach((attribute) => {
+      if (rejected.includes(attribute)) return;
       const value = this.getAttribute(attribute);
       videoTag.setAttribute(attribute, value);
-    });
-
-    this.removeVideoAttributes();
-  }
-
-  removeVideoAttributes() {
-    const attributes = ["class", "sources", "width", "height"];
-
-    attributes.forEach((attribute) => {
-      this.shadowRoot.querySelector("video").removeAttribute(attribute);
     });
   }
 
   removeComponentAttributes() {
-    const attributes = ["width", "height", "part", "fullwidth", "loop"];
+    const attributes = ["width", "height", "part"];
 
     attributes.forEach((attribute) => {
       this.removeAttribute(attribute);
@@ -134,6 +129,7 @@ class LazyVideoComponent extends HTMLElement {
   }
 
   getAspectRatio(width, height) {
+    if (width == null || height == null) return "auto";
     if (width === "auto" || height === "auto") return "auto";
 
     return parseInt(width) / parseInt(height);
